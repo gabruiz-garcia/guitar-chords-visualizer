@@ -1,33 +1,35 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib.patches import Circle, Wedge, Rectangle, FancyBboxPatch
+from matplotlib.patches import Circle, Wedge, Rectangle
 import numpy as np
 
-st.set_page_config(page_title="Campo Armónico Visual", page_icon="🎸", layout="wide")
+st.set_page_config(page_title="Visualizador Profesional de Acordes", 
+                   page_icon="🎸", layout="wide")
 
 st.markdown("""
 <style>
-    .stApp { background-color: #0a0a0a; }
-    h1 { color: #E94560 !important; font-size: 2rem !important; }
+    .stApp { background-color: #0f172a; }
+    h1 { color: #E94560 !important; }
     .stTabs [data-baseweb="tab"] {
-        background-color: #1a1a2a; border-radius: 8px 8px 0 0;
-        padding: 12px 20px; font-weight: bold; color: white;
+        background-color: #1e293b; border-radius: 8px 8px 0 0;
+        padding: 15px 25px; font-weight: bold; color: white;
     }
     .stTabs [aria-selected="true"] { background-color: #E94560 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🎸 Círculo de Quintas - Campo Armónico Visual")
+st.title("🎸 Visualizador Profesional: Círculo de Quintas, Campo Armónico y Acordes")
 st.markdown("---")
 
-# Configuración
+# CONFIGURACIÓN MUSICAL
 notes_sharp = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 notes_flat = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
 note_to_num = {note: i for i, note in enumerate(notes_sharp)}
 
-def get_notes(root):
-    return notes_flat if root in ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'] else notes_sharp
+def get_preferred_notes(root):
+    flat_roots = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb']
+    return notes_flat if root in flat_roots else notes_sharp
 
 CIRCLE_MAJOR = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Ab', 'Eb', 'Bb', 'F']
 CIRCLE_MINOR = ['Am', 'Em', 'Bm', 'F#m', 'C#m', 'G#m', 'D#m', 'Bbm', 'Fm', 'Cm', 'Gm', 'Dm']
@@ -39,261 +41,147 @@ KEY_SIGS = {
 }
 
 GRADE_COLORS = {
-    'I': '#FF0000',    # Rojo intenso
-    'II': '#FF8C00',   # Naranja
-    'III': '#FFD700',  # Amarillo/Dorado
-    'IV': '#FF1493',   # Rosa/DeepPink
-    'V': '#FF4500',    # NaranjaRojo
-    'VI': '#FFA500',   # Naranja
-    'VII': '#32CD32'   # Verde
+    'I': '#E63946', 'ii': '#FB8500', 'iii': '#FFB703',
+    'IV': '#F72585', 'V': '#F4A261', 'vi': '#FFD60A', 'vii': '#2ECC71'
 }
 
 CHORD_TYPES = {
-    'Mayor (I, IV, V)': {'intervals': [0, 4, 7], 'formula': '1 - 3 - 5'},
-    'Menor (ii, iii, vi)': {'intervals': [0, 3, 7], 'formula': '1 - b3 - 5'},
-    'Disminuido (vii°)': {'intervals': [0, 3, 6], 'formula': '1 - b3 - b5'},
-    'Mayor 7': {'intervals': [0, 4, 7, 11], 'formula': '1 - 3 - 5 - 7'},
-    'Menor 7': {'intervals': [0, 3, 7, 10], 'formula': '1 - b3 - 5 - b7'},
-    'Dominante 7': {'intervals': [0, 4, 7, 10], 'formula': '1 - 3 - 5 - b7'},
-    'Semi-disminuido': {'intervals': [0, 3, 6, 10], 'formula': '1 - b3 - b5 - b7'}
+    'Triada Mayor': {'intervals': [0, 4, 7], 'formula': '1 - 3 - 5', 'type': 'Mayor'},
+    'Triada Menor': {'intervals': [0, 3, 7], 'formula': '1 - b3 - 5', 'type': 'Menor'},
+    'Triada Disminuida': {'intervals': [0, 3, 6], 'formula': '1 - b3 - b5', 'type': 'Disminuido'},
+    'Triada Aumentada': {'intervals': [0, 4, 8], 'formula': '1 - 3 - #5', 'type': 'Aumentado'},
+    'Mayor 7 (Maj7)': {'intervals': [0, 4, 7, 11], 'formula': '1 - 3 - 5 - 7', 'type': 'Maj7'},
+    'Dominante 7 (7)': {'intervals': [0, 4, 7, 10], 'formula': '1 - 3 - 5 - b7', 'type': '7'},
+    'Menor 7 (m7)': {'intervals': [0, 3, 7, 10], 'formula': '1 - b3 - 5 - b7', 'type': 'm7'},
+    'Menor/Mayor 7 (mMaj7)': {'intervals': [0, 3, 7, 11], 'formula': '1 - b3 - 5 - 7', 'type': 'mMaj7'},
+    'Mayor 6': {'intervals': [0, 4, 7, 9], 'formula': '1 - 3 - 5 - 6', 'type': '6'},
+    'Menor 6': {'intervals': [0, 3, 7, 9], 'formula': '1 - b3 - 5 - 6', 'type': 'm6'},
+    'Semi-disminuido (m7b5)': {'intervals': [0, 3, 6, 10], 'formula': '1 - b3 - b5 - b7', 'type': 'ø7'},
+    'Disminuido 7 (dim7)': {'intervals': [0, 3, 6, 9], 'formula': '1 - b3 - b5 - bb7', 'type': 'dim7'},
+    'Aumentado 7 (7#5)': {'intervals': [0, 4, 8, 10], 'formula': '1 - 3 - #5 - b7', 'type': '7#5'},
+    'Sus4': {'intervals': [0, 5, 7], 'formula': '1 - 4 - 5', 'type': 'Sus4'},
+    'Sus2': {'intervals': [0, 2, 7], 'formula': '1 - 2 - 5', 'type': 'Sus2'}
 }
 
 TUNING = ['E', 'B', 'G', 'D', 'A', 'E']
 
-def get_harmonic_field(root):
-    """Retorna {posición_círculo: (grado, tipo, nota)}"""
+def get_harmonic_field_grades(root):
     idx = CIRCLE_MAJOR.index(root)
-    field = {}
-    
-    # Mapeo exacto del campo armónico en el círculo
-    field[idx] = ('I', 'Mayor', CIRCLE_MAJOR[idx])                    # Tónica
-    field[(idx + 1) % 12] = ('V', 'Mayor', CIRCLE_MAJOR[(idx + 1) % 12])  # Dominante (+1 quinta)
-    field[(idx - 1) % 12] = ('IV', 'Mayor', CIRCLE_MAJOR[(idx - 1) % 12]) # Subdominante (-1 quinta)
-    field[(idx + 2) % 12] = ('II', 'Menor', CIRCLE_MAJOR[(idx + 2) % 12]) # Supertónica (+2 quintas)
-    field[(idx - 2) % 12] = ('VI', 'Menor', CIRCLE_MAJOR[(idx - 2) % 12]) # Submediante (-2 quintas)
-    field[(idx + 3) % 12] = ('III', 'Menor', CIRCLE_MAJOR[(idx + 3) % 12])# Mediante (+3 quintas)
-    field[(idx + 4) % 12] = ('VII', 'Disminuido', CIRCLE_MAJOR[(idx + 4) % 12]) # Sensible (+4 quintas)
-    
-    return field
+    grade_map = {}
+    grade_map[idx] = ('I', 'Mayor', CIRCLE_MAJOR[idx])
+    grade_map[(idx + 1) % 12] = ('V', 'Mayor', CIRCLE_MAJOR[(idx + 1) % 12])
+    grade_map[(idx - 1) % 12] = ('IV', 'Mayor', CIRCLE_MAJOR[(idx - 1) % 12])
+    grade_map[(idx + 2) % 12] = ('ii', 'Menor', CIRCLE_MAJOR[(idx + 2) % 12])
+    grade_map[(idx - 2) % 12] = ('vi', 'Menor', CIRCLE_MAJOR[(idx - 2) % 12])
+    grade_map[(idx + 3) % 12] = ('iii', 'Menor', CIRCLE_MAJOR[(idx + 3) % 12])
+    grade_map[(idx + 4) % 12] = ('vii', 'Disminuido', CIRCLE_MAJOR[(idx + 4) % 12])
+    return grade_map
 
-def draw_focused_circle(ax, root):
-    """Dibuja el círculo mostrando SOLO el campo armónico con grados romanos"""
-    ax.set_xlim(-1.5, 1.5)
-    ax.set_ylim(-1.5, 1.5)
-    ax.set_aspect('equal')
-    ax.axis('off')
-    ax.set_facecolor('#0a0a0a')
-    
-    field = get_harmonic_field(root)
-    sig_num, sig_type = KEY_SIGS[root]
-    sig_str = f"{sig_num}{'♯' if sig_type == '#' else '♭' if sig_type == 'b' else ''}" if sig_num > 0 else "Natural"
-    
-    ax.set_title(f'{root} Mayor - Armadura: {sig_str}', 
-                color='white', fontsize=18, fontweight='bold', pad=20)
-    
-    # Dibujar los 12 sectores
-    for i, (major_note, minor_note) in enumerate(zip(CIRCLE_MAJOR, CIRCLE_MINOR)):
-        angle = np.pi/2 - i * (2*np.pi/12)  # 12 en punto es C
-        
-        is_in_field = i in field
-        is_tonic = (major_note == root)
-        
-        if is_in_field:
-            grade, quality, _ = field[i]
-            color = GRADE_COLORS[grade]
-            alpha = 1.0
-            radius = 1.0
-            linewidth = 4
-        else:
-            # Fuera del campo armónico - casi invisible
-            color = '#1a1a1a'
-            alpha = 0.3
-            radius = 0.9
-            linewidth = 0.5
-        
-        # Sector exterior
-        wedge = Wedge((0, 0), radius, np.degrees(angle - np.pi/12), 
-                     np.degrees(angle + np.pi/12), 
-                     facecolor=color, alpha=alpha, edgecolor='white' if is_in_field else '#333', 
-                     linewidth=linewidth)
-        ax.add_patch(wedge)
-        
-        # Sector interior (menor)
-        if is_in_field:
-            wedge_inner = Wedge((0, 0), 0.6, np.degrees(angle - np.pi/12), 
-                               np.degrees(angle + np.pi/12), 
-                               facecolor=color, alpha=0.6, edgecolor='white', linewidth=2)
-            ax.add_patch(wedge_inner)
-        
-        if is_in_field:
-            grade, quality, _ = field[i]
-            
-            # GRADO ROMANO (grande, arriba)
-            x_grade = 0.8 * np.cos(angle)
-            y_grade = 0.95 * np.sin(angle)
-            
-            display_grade = grade if quality == 'Mayor' else grade.lower()
-            if quality == 'Disminuido':
-                display_grade = 'vii°' if grade == 'VII' else grade.lower() + '°'
-            
-            # Símbolo del grado
-            ax.text(x_grade, y_grade, display_grade, ha='center', va='center',
-                   fontsize=22, fontweight='bold', color='white',
-                   bbox=dict(boxstyle='round,pad=0.3', facecolor='black', 
-                            edgecolor=color, linewidth=3), zorder=10)
-            
-            # NOTA MAYOR (debajo del grado)
-            x_note = 0.8 * np.cos(angle)
-            y_note = 0.75 * np.sin(angle)
-            
-            ax.text(x_note, y_note, major_note, ha='center', va='center',
-                   fontsize=16, fontweight='bold', color=color, zorder=10)
-            
-            # Armadura pequeña
-            num_alt, tipo_alt = KEY_SIGS[major_note]
-            if num_alt > 0:
-                x_alt = 1.08 * np.cos(angle)
-                y_alt = 1.08 * np.sin(angle)
-                symbol = '♯' if tipo_alt == '#' else '♭'
-                ax.text(x_alt, y_alt, f"{num_alt}{symbol}", ha='center', va='center',
-                       fontsize=11, color='#FFD700', fontweight='bold',
-                       bbox=dict(boxstyle='circle', facecolor='#222', alpha=0.8))
-            
-            # NOTA MENOR (interior)
-            x_min = 0.35 * np.cos(angle)
-            y_min = 0.35 * np.sin(angle)
-            ax.text(x_min, y_min, minor_note, ha='center', va='center',
-                   fontsize=12, fontweight='bold', color='white', zorder=10,
-                   bbox=dict(boxstyle='round,pad=0.2', facecolor='#000', alpha=0.7))
-        else:
-            # Notas fuera del campo - muy tenues
-            x = 0.8 * np.cos(angle)
-            y = 0.8 * np.sin(angle)
-            ax.text(x, y, major_note, ha='center', va='center',
-                   fontsize=10, color='#444', alpha=0.4)
-            
-            x_min = 0.35 * np.cos(angle)
-            y_min = 0.35 * np.sin(angle)
-            ax.text(x_min, y_min, minor_note, ha='center', va='center',
-                   fontsize=8, color='#333', alpha=0.3)
-    
-    # Centro
-    if True:
-        center_bg = Circle((0, 0), 0.2, facecolor=GRADE_COLORS['I'], 
-                          edgecolor='white', linewidth=3)
-        ax.add_patch(center_bg)
-        ax.text(0, 0, root, ha='center', va='center', fontsize=24, 
-               fontweight='bold', color='white')
-        ax.text(0, -0.12, 'I', ha='center', va='center', fontsize=12, color='white')
+def get_scale_notes(root):
+    notes = get_preferred_notes(root)
+    root_idx = note_to_num[root] if root in note_to_num else notes_sharp.index(root)
+    intervals = [0, 2, 4, 5, 7, 9, 11]
+    return [(notes[(root_idx + i) % 12], i) for i in intervals]
 
-def get_chord_notes(root, intervals):
+def get_chord_notes(root, chord_type_name):
+    if chord_type_name not in CHORD_TYPES:
+        return []
+    intervals = CHORD_TYPES[chord_type_name]['intervals']
     root_idx = note_to_num[root]
-    notes = get_notes(root)
-    return [notes[(root_idx + i) % 12] for i in intervals]
+    notes = get_preferred_notes(root)
+    return [notes[(root_idx + interval) % 12] for interval in intervals]
 
-def get_inversions(notes):
+def get_inversions(root, chord_type_name):
+    notes = get_chord_notes(root, chord_type_name)
     if len(notes) < 3:
         return {}
-    invs = {
-        'Raíz': notes,
-        '1ª Inv': notes[1:] + [notes[0]],
-        '2ª Inv': notes[2:] + notes[:2]
+    inversions = {
+        'Estado Fundamental': notes,
+        '1ra Inversión': notes[1:] + [notes[0]],
+        '2da Inversión': notes[2:] + notes[:2]
     }
     if len(notes) == 4:
-        invs['3ª Inv'] = [notes[3]] + notes[:3]
-    return invs
+        inversions['3ra Inversión'] = [notes[3]] + notes[:3]
+    return inversions
 
-# Interfaz
-col1, col2, col3 = st.columns([1, 2, 1])
-with col1:
-    root_note = st.selectbox("Tonalidad:", CIRCLE_MAJOR, index=0)
-    chord_sel = st.selectbox("Tipo:", list(CHORD_TYPES.keys()), index=0)
-    
-    intervals = CHORD_TYPES[chord_sel]['intervals']
-    notes_chord = get_chord_notes(root_note, intervals)
-    
-    st.markdown("### Notas del Acorde")
-    for i, note in enumerate(notes_chord):
-        st.markdown(f"<h3 style='color: {['#FF0000', '#00FF00', '#0000FF', '#FFD700'][i]}; margin: 5px;'>{note}</h3>", unsafe_allow_html=True)
+def get_harmonic_field_full(root):
+    scale = get_scale_notes(root)
+    harmonic = {}
+    chord_defs = [
+        ('I', 'Mayor', 'Triada Mayor'), ('ii', 'Menor', 'Triada Menor'),
+        ('iii', 'Menor', 'Triada Menor'), ('IV', 'Mayor', 'Triada Mayor'),
+        ('V', 'Mayor', 'Triada Mayor'), ('vi', 'Menor', 'Triada Menor'),
+        ('vii', 'Disminuido', 'Triada Disminuida')
+    ]
+    for i, (degree, quality, chord_type) in enumerate(chord_defs):
+        note = scale[i][0]
+        intervals = CHORD_TYPES[chord_type]['intervals']
+        chord_notes = [get_preferred_notes(root)[(note_to_num[note] + interval) % 12] 
+                      for interval in intervals]
+        harmonic[degree] = {
+            'root': note, 'quality': quality, 'chord_type': chord_type,
+            'notes': chord_notes, 'formula': CHORD_TYPES[chord_type]['formula'],
+            'color': GRADE_COLORS[degree]
+        }
+    return harmonic
 
-with col2:
-    fig, ax = plt.subplots(figsize=(10, 10))
-    fig.patch.set_facecolor('#0a0a0a')
-    draw_focused_circle(ax, root_note)
-    st.pyplot(fig, use_container_width=True)
-
-with col3:
-    st.subheader("Grados Activos")
-    field = get_harmonic_field(root_note)
+def draw_study_circle(ax, root):
+    ax.set_xlim(-1.6, 1.6)
+    ax.set_ylim(-1.6, 1.6)
+    ax.set_aspect('equal')
+    ax.axis('off')
+    ax.set_facecolor('#0f172a')
     
-    # Orden funcional
-    orden = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']
-    for grado_romano in orden:
-        for pos, (grado, tipo, nota) in field.items():
-            if grado == grado_romano:
-                color = GRADE_COLORS[grado]
-                display = grado if tipo == 'Mayor' else grado.lower()
-                if tipo == 'Disminuido':
-                    display = 'vii°'
-                
-                st.markdown(f"""
-                <div style="background-color: {color}22; border-left: 4px solid {color}; 
-                            padding: 10px; margin: 5px 0; border-radius: 0 8px 8px 0;">
-                    <span style="color: {color}; font-size: 24px; font-weight: bold;">{display}</span>
-                    <span style="color: white; font-size: 18px; margin-left: 10px;">{nota}</span>
-                    <span style="color: #888; font-size: 12px; float: right;">{tipo}</span>
-                </div>
-                """, unsafe_allow_html=True)
-
-st.markdown("---")
-tab1, tab2 = st.tabs(["🎸 Inversiones", "🎸 Diapasón"])
-
-with tab1:
-    st.subheader(f"Inversiones - {root_note} {chord_sel.split()[0]}")
-    invs = get_inversions(notes_chord)
+    grade_map = get_harmonic_field_grades(root)
+    sig_num, sig_type = KEY_SIGS[root]
+    sig_text = f"({sig_num} {sig_type})" if sig_num > 0 else "(Natural)"
+    ax.set_title(f'Círculo de Quintas: {root} Mayor {sig_text}', 
+                color='white', fontsize=20, fontweight='bold', pad=30)
     
-    cols = st.columns(len(invs))
-    for col, (name, notes) in zip(cols, invs.items()):
-        with col:
-            st.markdown(f"<h4 style='text-align: center; color: #4ECDC4;'>{name}</h4>", unsafe_allow_html=True)
-            for i, note in enumerate(notes):
-                color = ['#FF0000', '#00FF00', '#0000FF', '#FFD700'][i]
-                st.markdown(f"""
-                <div style="background-color: {color}; color: white; padding: 15px; 
-                            margin: 5px 0; text-align: center; border-radius: 8px;
-                            font-size: 20px; font-weight: bold;">
-                    {note}
-                </div>
-                """, unsafe_allow_html=True)
-
-with tab2:
-    fig, ax = plt.subplots(figsize=(16, 5))
-    ax.set_facecolor('#1a1a2a')
+    for r in [0.6, 1.0]:
+        circle = Circle((0, 0), r, fill=False, edgecolor='#475569', linewidth=2, alpha=0.3)
+        ax.add_patch(circle)
     
-    # Dibujar diapasón básico
-    for fret in range(23):
-        color = '#FFD700' if fret in [3,5,7,9,12,15,17,19,21] else '#666'
-        ax.axvline(fret, color=color, linewidth=2)
-    for string in range(6):
-        ax.axhline(string, color='#DDD', linewidth=3-string*0.3, alpha=0.6)
-    
-    # Notas
-    for string in range(6):
-        for fret in range(22):
-            open_idx = note_to_num[TUNING[string]]
-            curr_idx = (open_idx + fret) % 12
-            
-            for i, inter in enumerate(intervals):
-                if (note_to_num[root_note] + inter) % 12 == curr_idx:
-                    color = ['#FF0000', '#00FF00', '#0000FF', '#FFD700'][i]
-                    circle = Circle((fret, string), 0.25, facecolor=color, edgecolor='white', linewidth=2)
-                    ax.add_patch(circle)
-                    ax.text(fret, string, notes_sharp[curr_idx], ha='center', va='center', 
-                           fontsize=8, color='white', fontweight='bold')
-    
-    ax.set_xlim(-0.5, 22.5)
-    ax.set_ylim(-0.5, 5.5)
-    ax.set_yticks(range(6))
-    ax.set_yticklabels(TUNING[::-1], color='white')
-    ax.invert_yaxis()
-    st.pyplot(fig, use_container_width=True)
+    for i, (major_note, minor_note) in enumerate(zip(CIRCLE_MAJOR, CIRCLE_MINOR)):
+        angle = np.pi/2 - i * (2*np.pi/12)
+        
+        is_in_field = i in grade_map
+        is_tonic = (major_note == root)
+        
+        if is_tonic:
+            color = GRADE_COLORS['I']
+            alpha = 1.0
+            radius = 1.0
+            lw = 4
+        elif is_in_field:
+            grade_name = grade_map[i][0]
+            color = GRADE_COLORS[grade_name]
+            alpha = 0.9
+            radius = 0.95
+            lw = 3
+        else:
+            color = '#334155'
+            alpha = 0.15
+            radius = 0.9
+            lw = 1
+        
+        zorder = 10 if is_in_field else 1
+        
+        wedge = Wedge((0, 0), radius, np.degrees(angle - np.pi/12), 
+                     np.degrees(angle + np.pi/12), 
+                     facecolor=color, alpha=alpha, edgecolor='white', linewidth=lw, zorder=zorder)
+        ax.add_patch(wedge)
+        
+        wedge_inner = Wedge((0, 0), 0.6, np.degrees(angle - np.pi/12), 
+                           np.degrees(angle + np.pi/12), 
+                           facecolor=color, alpha=alpha*0.7, edgecolor='white', linewidth=lw, zorder=zorder)
+        ax.add_patch(wedge_inner)
+        
+        x_maj = 0.8 * np.cos(angle)
+        y_maj = 0.8 * np.sin(angle)
+        
+        circle_bg = Circle((x_maj, y_maj), 0.14 if is_in_field else 0.10, 
+                          facecolor=color, edgecolor='white', linewidth=2, zorder=zorder+1)
+        ax.add_patch(circle_bg)
+        
+        ax.text(x_m
